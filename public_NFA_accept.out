@@ -1,0 +1,8 @@
+accept() = false
+accept(a) = true
+accept(b) = false
+accept(ba) = false
+accept() = false
+accept(a) = false
+accept(b) = true
+accept(ba) = false

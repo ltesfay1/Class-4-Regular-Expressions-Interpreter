@@ -1,0 +1,477 @@
+<!--#include virtual="header.html" -->
+ 
+<body>
+
+<h1 class="title">Project 3 - Regular Expression Interpreter </h1>
+<center>
+Due Mon Oct 26 11:59pm
+</center>
+
+<h2>Introduction</h2>
+
+<p>
+In this project, you will write an OCaml module to implement
+NFAs and regular expressions.
+
+<h2>Getting Started</h2>
+
+Downloading
+<ul>
+<li> Download the archive file 
+<a href="p3.zip">p3.zip</a> 
+and extract its contents.
+</ul>
+
+<p>
+Along with files used to make direct submissions to the
+submit server (<a href="submit.jar">submit.jar</a>, 
+<a href=".submit">.submit</a> , 
+<a href="submit.rb">submit.rb</a>), you will
+find the following project files:
+</p><ul>
+<li>Your OCaml program
+<ul>
+<li><a href="nfa.ml">nfa.ml</a>
+</ul>
+</li><li>Public tests
+<ul>
+<li> <a href="public_NFA_closure.ml">public_NFA_closure.ml</a>
+<li> <a href="public_NFA_move.ml">public_NFA_move.ml</a>
+<li> <a href="public_NFA_accept.ml">public_NFA_accept.ml</a>
+<li> <a href="public_RE_to_str.ml">public_RE_to_str.ml</a>
+<li> <a href="public_RE_to_NFA.ml">public_RE_to_NFA.ml</a>
+<li> <a href="public_str_to_NFA.ml">public_str_to_NFA.ml</a>
+
+</li></ul>
+</li><li>Expected output for public test
+<ul>
+<li> <a href="public_NFA_closure.out">public_NFA_closure.out</a>
+<li> <a href="public_NFA_move.out">public_NFA_move.out</a>
+<li> <a href="public_NFA_accept.out">public_NFA_accept.out</a>
+<li> <a href="public_RE_to_str.out">public_RE_to_str.out</a>
+<li> <a href="public_RE_to_NFA.out">public_RE_to_NFA.out</a>
+<li> <a href="public_str_to_NFA.out">public_str_to_NFA.out</a>
+</li></ul>
+<li>Ruby script to run public tests 
+<ul>
+<li><a href="goTest.rb">goTest.rb</a>
+</ul>
+</li></ul>
+
+<p>
+
+To test your implementation, you can execute the public tests from the 
+command line by typing commands like <tt>ocaml public_RE_to_str.ml</tt>, or you can use the <tt>goTest.rb</tt> script.
+
+Note that to use goTest.rb you must first edit the file and specify which diff program to use.
+
+<p>
+
+For this project you are allowed to use the library
+functions found in the Pervasives 
+module loaded by default, as well as functions
+from the List and String modules.
+As in the previous project, you are not
+allowed to use imperative OCaml, except for
+the <tt>next</tt> function to to generate new
+NFA state numbers. You will receive a 0 for any
+functions using restricted features - we will be
+checking your code!
+
+<h2>Project Description </h2>
+
+<p>
+Your job is to implement a module <tt>Nfa</tt> that includes
+an API for implementing both NFAs and regular expressions.
+The signature and starter implementation for the NFA module is provided.
+You may <i>not</i> change the <tt>NFA</tt> signature in
+any way, though your implementation may include more
+types and functions than are listed in the signature. The
+implementation contains a parser you can use to make it easier
+to test your implementation. We say more about the parser, below.
+
+<h3>Part 1: NFAs </h3>
+
+<p>
+For the first part of this project, you will write a series of
+functions to implement NFAs using OCaml.  
+
+<pre>
+module type NFA =
+  sig
+    type nfa
+    type transition = int * char option * int
+    val make_nfa : int -> int list -> transition list -> nfa
+    val e_closure : nfa -> int list -> int list
+    val move : nfa -> int list -> char -> int list
+    val accept : nfa -> string -> bool
+    ...
+end
+</pre>
+
+<p>
+Here are descriptions of the elements of this signature, and what you
+need to do to implement them:
+<ul>
+<li> <tt>type nfa</tt> - This is an <i>abstract type</i> representing
+NFAs.  It is up to you to decide exactly how NFAs are implemented.
+Since the type is abstract, no client that uses your module will be
+able to see exactly how they are implemented.
+<p>
+
+<li> <tt>type transition = int * char option * int</tt> - This is a
+(non-abstract) type we've made up for convenience to describe an NFA
+transition.  In the NFAs for this project, states will simply be
+identified by number.  Then <tt>(s0, Some c, s1)</tt> represents a
+transition from the state numbered <tt>s0</tt> to the state numbered
+<tt>s1</tt>, via an arc labeled with the character <tt>c</tt>.  Notice that
+the character is optional---the transition <tt>(s0, None, s1)</tt>
+represents an epsilon transition from <tt>s0</tt> to <tt>s1</tt>.
+<p>
+
+<li> <tt>make_nfa : int -> int list -> transition list -> nfa</tt>.
+This function takes as input the starting state, a list of final
+states, and a list of transitions, and returns an NFA.  Again, it is
+up to you to decide exactly how NFAs should be implemented, but you
+probably do not need to do much more than track these three components
+(the starting state, final states, and transition list).  As one example,
+<pre>
+  let m = make_nfa 0 [2] [(0, Some 'a', 1); (1, None, 2)]
+</pre>
+sets <tt>m</tt> to be an NFA with start state 0, final state 2, a
+transition from 0 to 1 on character <tt>a</tt>, and an epsilon
+transition from 1 to 2.
+<p>
+
+<li> <tt>e_closure: nfa -> int list -> int list</tt>.  This
+function takes as input an nfa and a list of states.
+The output will be a list of states
+(in any order, with no duplicates) 
+that the NFA might be in making zero or more epsilon
+transitions, starting from the list of initial states given 
+as an argument to e_closure.  For example, letting <tt>m</tt> 
+be the NFA above, e_closure would return the following:
+<pre>
+  e_closure m [0]     (* returns [0]   *)
+  e_closure m [1]     (* returns [1;2] *)
+  e_closure m [2]     (* returns [2]   *)
+  e_closure m [0;1]   (* returns [0;1;2] *)
+</pre>
+<p>
+
+<li> <tt>move : nfa -> int list -> char -> int list</tt>.  This
+function takes as input an nfa, a list of initial states, and a
+character.  The output will be a list of states
+(in any order, with no duplicates) 
+that the NFA might be in after making one transition 
+on the character, starting from one of the initial states 
+given as an argument to move.  For example, letting
+<tt>m</tt> be the NFA above, move would return the following:
+<pre>
+  move m [0] 'a'    (* returns [1] *)
+  move m [1] 'a'    (* returns [] *)
+  move m [2] 'a'    (* returns [] *)
+  move m [0;1] 'a'  (* returns [1] *)
+</pre>
+
+<p>
+Notice that the NFA uses an implicit dead state.  If
+<tt>s</tt> is a state in the input list and there are no transitions
+from <tt>s</tt> on the input character, then all that happens is that
+no states are added to the output list for <tt>s</tt>.
+<p>
+
+<li><tt>accept : nfa -> string -> bool</tt>.  This function takes an
+NFA and a string, and returns true if the NFA accepts the string, and
+false otherwise.  You will find functions in the
+<a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/String.html">String library</a> to be helpful.
+</ul>
+
+<p>
+Note: You need to be a bit careful whenever you combine NFA
+representations to be sure that state names (i.e., integers) don't conflict.
+You might use the following internal function as an aid in this process:
+<ul>
+<li><tt>next : unit -> int</tt> - Return a new integer, different from
+any values previously returned by <tt>next</tt>.  (This function is defined on
+the OCaml slides.)
+</ul>
+
+<h3>Part 2: Regular Expressions</h3>
+
+<p>
+The second part of this project is to implement regular expressions. 
+
+The signature <tt>NFA</tt> contains the following
+declarations:
+<pre>
+module type NFA =
+  sig
+     ...
+    type regexp =
+	Empty_String
+      | Char of char
+      | Union of regexp * regexp
+      | Concat of regexp * regexp
+      | Star of regexp
+
+    val regexp_to_string : regexp -> string 
+    val regexp_to_nfa : regexp -> nfa
+    ...
+end
+</pre>
+
+    
+
+<p>
+Here <tt>regexp</tt> is an user-defined OCaml variant datatype 
+that represents regular expressions:
+<ul>
+<li><tt>Empty_String</tt> represents the regular expression recognizing the
+<i>empty string</i> (not the empty set!).  Written as a formal regular expression, this would be <tt>epsilon</tt>.
+<p>
+
+<li><tt>Char c</tt> represents the regular expression that accepts the
+single character <tt>c</tt>.  Written as a formal regular expression, this would be <tt>c</tt>.
+<p>
+
+<li><tt>Union (r1, r2)</tt> represents the regular expression that is
+the union of <tt>r1</tt> and <tt>r2</tt>.  For example, <tt>Union(Char
+'a', Char'b')</tt> is the same as the formal regular expression <tt>a|b</tt>.
+<p>
+
+<li><tt>Concat (r1, r2)</tt> represents the concatenation of
+<tt>r1</tt> followed by <tt>r2</tt>.  For example, <tt>Concat(Char
+'a', Char 'b')</tt> is the same as the formal regexp <tt>ab</tt>.
+<p>
+
+<li><tt>Star r</tt> represents the Kleene closure of regular
+expression <tt>r</tt>.  For example, <tt>Star (Union (Char 'a', Char
+'b'))</tt> is the same as the formal regexp <tt>(a|b)*</tt>
+</ul>
+
+For this part of the project you need to implement the following:
+
+<ul>
+<li> <tt>regexp_to_string : regexp -> string </tt> takes a  
+a regular expression and returns a string for the regular expression
+in the postfix notation used in project 2.  You can do this as a postorder 
+DFS traversal over the regexp data structure.
+
+<p>
+
+<li> <tt>regexp_to_nfa : regexp -> nfa </tt> takes a 
+<tt>regexp</tt> and returns an NFA that accepts the same 
+language as the regular expression.  Unlike project 2, as long as 
+your NFA accepts the correct language, the structure of the NFA does 
+not matter (since the NFA produced by regexp_to_nfa will only be 
+tested by seeing which strings it accepts). 
+
+</ul>
+
+<h3>Provided: Regular Expressions Parser</h3>
+
+<p>
+In the starter files we have provided code that parses strings into
+<tt>regexp</tt> values. In particular, it implements the following
+elements of the signature: 
+
+<pre>
+module type NFA =
+  sig
+     ...
+    val string_to_regexp : string -> regexp
+    val string_to_nfa : string -> nfa
+    exception IllegalExpression of string
+end
+</pre>
+
+where
+<ul>
+
+<li> <tt>string_to_regexp : string -> regexp</tt> takes a string for 
+a regular expression, parses the string, and outputs its equivalent 
+<tt>regexp</tt>. If the parser determines that the regular expression has
+illegal syntax, it will raise an <tt>IllegalExpression</tt> exception.
+
+<li> <tt>string_to_nfa : string -> nfa</tt> takes a string for 
+a regular expression, parses the string, converts it into a
+<tt>regexp</tt>, and transforms it to an nfa, using your
+  <tt>regexp_to_nfa</tt> function. As such, for this functiont to
+  work, your <tt>regexp_to_nfa</tt> function must be working.
+
+</ul>
+
+<p>Notes about the grammar for regular expressions implemented by the
+provided parser:
+<ul>
+<li>The regular expressions can contain only <tt>(</tt>, <tt>)</tt>, <tt>|</tt>, <tt>*</tt>, a, b, ..., z and E (for epsilon).
+<li>Note that the precedence for regular expressions are as follows, from highest to lowest:
+<p>
+
+<table border="1">
+<tbody>
+<tr>
+<th>Precedence</th>
+<th>Operator</th>
+<th>Description</th>
+</tr>
+
+<tr>
+<td align="center">Highest</td>
+<td align="center"><tt>( )</tt></td>
+<td align="center">parentheses</td>
+</tr>
+
+<tr>
+<td align="center">|</td>
+<td align="center"><tt>*</tt></td>
+<td align="center">closure</td>
+</tr>
+
+<tr>
+<td align="center">v</td>
+<td align="center"><tt>.</tt></td>
+<td align="center">concatenation</td>
+</tr>
+
+<tr>
+<td align="center">Lowest</td>
+<td align="center"><tt>|</tt></td>
+<td align="center">union</td>
+</tr>
+</table>
+
+<p>
+
+<li>Note that all the binary operators are <b>right associative</b>.
+<li>Your function should throw an <tt>IllegalExpression</tt> exception for invalid regular expressions.
+</ul>
+
+Some examples of regular expressions and their equivalent <tt>regexp</tt>
+data type are listed in the following table:
+<ul>
+<table border="1">
+<tbody>
+<tr>
+<th>String Input</th>
+<th><tt>regexp</tt> Output</th>
+<th>String Output</th>
+</tr>
+<tr>
+<td>a</td>
+<td><tt>Char 'a'</tt></td>
+<td>a</td>
+</tr>
+<tr>
+<td>a|b</td>
+<td><tt>Union(Char 'a',Char 'b')</tt></td>
+<td>a b |</td>
+</tr>
+<tr>
+<td>ab</td>
+<td><tt>Concat(Char 'a',Char 'b')</tt></td>
+<td>a b .</td>
+</tr>
+<tr>
+<td>aab</td>
+<td><tt>Concat(Char 'a',Concat(Char 'a',Char 'b'))</tt></td>
+<td>a a b . .</td>
+</tr>
+<tr>
+<td>(a|E)*</td>
+<td><tt>Star(Union(Char 'a',Empty_String))</tt></td>
+<td>a E | *</td>
+</tr>
+<tr>
+<td>(a|E)*(a|b)</td>
+<td><tt>Concat(Star(Union(Char 'a',Empty_String)),Union(Char 'a',Char 'b'))</tt></td>
+<td>a E | * a b | .</td>
+</tr>
+</table>
+</ul>
+
+<h2>Submission</h2>
+
+You can submit your project in two ways:
+
+<ul>
+
+<li>
+Submit your file nfa.ml directly to the 
+<a href="http://submit.cs.umd.edu/">submit server</a> 
+by clicking on the submit link in the column "web submission".
+
+<p>
+<img src="submit1.jpg">
+</p><p>
+
+Next, use the submit dialog to submit your nfa.ml file.
+
+</p><p>
+<img src="submit2.jpg">
+</p><p>
+
+Select your file using the "Browse" button, 
+then press the "Submit project!" button.  
+
+</p><p>
+</p></li>
+
+<li>
+Submit directly by executing a Java program on a computer
+with Java and network access.  Use the submit.jar file 
+from the archive <a href="p3.zip">p3.zip</a>, 
+To submit, go to the directory containing your project, then either
+execute submit.rb or type the following command directly:
+<p> 
+
+</p><center>
+<tt>
+java -jar submit.jar
+</tt>
+</center>
+<p>
+
+You will be asked to enter your class account and password, then
+all files in the directory (and its subdirectories) will be
+put in a jar file and submitted to the submit server.  
+If your submission is successful you will see the message:
+</p><p> 
+
+</p><center>
+<tt>
+Successful submission #<submission_number> received for project 4
+</submission_number></tt>
+</center>
+<p>
+
+</p></li></ul>
+
+<h2>Academic Integrity</h2>
+
+<p>
+The Campus Senate has adopted a policy asking students to include the
+following statement on each assignment in every course: "I pledge on
+my honor that I have not given or received any unauthorized assistance
+on this assignment."  Consequently your program is requested to
+contain this pledge in a comment near the top.
+
+<p>
+Please <b>carefully read</b> the academic honesty section of the
+course syllabus.  <b>Any evidence</b> of impermissible cooperation on
+projects, use of disallowed materials or resources, or unauthorized
+use of computer accounts, <b>will be submitted</b> to the Student
+Honor Council, which could result in an XF for the course, or
+suspension or expulsion from the University.  Be sure you understand
+what you are and what you are not permitted to do in regards to
+academic integrity when it comes to project assignments.  These
+policies apply to all students, and the Student Honor Council does not
+consider lack of knowledge of the policies to be a defense for
+violating them.  Full information is found in the course
+syllabus---please review it at this time.
+
+
+</body>
+</html>
+
